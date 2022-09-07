@@ -70,8 +70,7 @@ function getBaseFolderToOpenDialog(): Uri {
     return Uri.file(".");
 }
 
-//TODO: rename the command
-export const HelloWorldCommand = () => (): void => {
+export const AttachToArtifactCommand = () => (): void => {
     //TODO: ask user for Tuleap URL, field_id, artifact_id and access_key
     // project_id = 107
     // tracker_id = 68

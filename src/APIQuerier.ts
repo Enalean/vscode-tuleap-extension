@@ -2,7 +2,7 @@
 // we should build our own abstraction on top of node's https module.
 import axios from "axios";
 import { Upload } from "tus-js-client";
-import type { FileStatsRetrieved, FileUploaded, NewFileCreated } from "./HelloWorldCommand";
+import type { FileStatsRetrieved, FileUploaded, NewFileCreated } from "./AttachToArtifactCommand";
 
 type PostFileRequest = {
     readonly name: string;

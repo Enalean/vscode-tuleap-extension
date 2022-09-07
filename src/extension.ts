@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import type { ExtensionContext } from "vscode";
 import { commands } from "vscode";
-import { HelloWorldCommand } from "./HelloWorldCommand";
+import { AttachToArtifactCommand } from "./AttachToArtifactCommand";
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -12,8 +12,11 @@ export function activate(context: ExtensionContext): void {
     // Now provide the implementation of the command with registerCommand
     // The commandId parameter must match the command field in package.json
 
-    const helloWorld = commands.registerCommand("tuleap.helloWorld", HelloWorldCommand());
-    context.subscriptions.push(helloWorld);
+    const attachToArtifact = commands.registerCommand(
+        "tuleap.attachToArtifact",
+        AttachToArtifactCommand()
+    );
+    context.subscriptions.push(attachToArtifact);
 }
 
 // this method is called when your extension is deactivated or uninstalled

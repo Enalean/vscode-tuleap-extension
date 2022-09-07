@@ -15,14 +15,15 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:tuleap.helloWorld"
+    "onCommand:tuleap.attachToArtifact"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "tuleap.helloWorld",
-        "title": "Hello World"
+        "command": "tuleap.attachToArtifact",
+        "title": "Attach to Artifact",
+        "category": "Tuleap"
       }
     ]
   },
