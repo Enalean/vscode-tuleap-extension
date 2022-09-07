@@ -21,7 +21,6 @@ module.exports = {
         "dot-notation": "warn",
         "no-alert": "error",
         "no-caller": "error",
-        "no-console": "error",
         "no-div-regex": "error",
         "no-else-return": "warn",
         "no-eval": "error",
@@ -75,13 +74,5 @@ module.exports = {
             "error",
             { functions: false, typedefs: false, classes: false },
         ],
-    },
-    overrides: [
-        {
-            files: ["src/test/**/*.ts"],
-            rules: {
-                "no-console": "off",
-            },
-        },
-    ],
+    }
 };
