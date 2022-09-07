@@ -73,6 +73,7 @@ function getBaseFolderToOpenDialog(): Uri {
 
 const CHUNK_SIZE = 67108864; // = 64 MiB. Number of bytes held in memory at a time during file upload;
 
+//TODO: rename the command
 export const HelloWorldCommand = () => (): void => {
     //TODO: ask user for Tuleap URL, field_id, artifact_id and access_key
     // project_id = 107
@@ -129,10 +130,13 @@ export const HelloWorldCommand = () => (): void => {
             console.log("Starting TUS Upload");
             //TODO: move to APIQuerier ?
             return new Promise<FileUploaded>((resolve, reject) => {
-                //TODO: feature request being able to pass number values as metadata. Only strings is rejected by Tuleap's Restler validation (for file_size)
+                //TODO: feature request being able to pass number values as metadata. String type is rejected by Tuleap's Restler validation (for `file_size`)
                 const uploader = new Upload(file.handle.createReadStream({ start: 0 }), {
                     uploadUrl: uploadUrl.href,
                     headers: { "X-Auth-AccessKey": personal_access_key },
+                    // Note that tus-js-client's documentation specifies to avoid setting chunkSize and uploadSize unless forced to.
+                    // We are forced to set them, it does not look like the detection of ReadableStream worked in our case.
+                    //TODO: minimize the reproduction and report the issue
                     chunkSize: CHUNK_SIZE,
                     uploadSize: file.file_size,
                     //TODO: progress indicator ?
@@ -152,6 +156,7 @@ export const HelloWorldCommand = () => (): void => {
         })
         .then(
             () => {
+                //TODO: success feedback as vscode notification
                 console.log("Success !");
                 open_file_descriptor.dispose();
             },
