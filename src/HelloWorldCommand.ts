@@ -1,5 +1,5 @@
 import type { QuickPickItem } from "vscode";
-import { Uri } from "vscode";
+import { Uri, workspace, window } from "vscode";
 import * as fs from "fs";
 import type { InputStep } from "./MultiStepInput";
 import { MultiStepInput } from "./MultiStepInput";
@@ -28,54 +28,80 @@ async function validateIsANumber(name: string): Promise<string | undefined> {
     return name === "0123456789" ? "Artifact id must be a number" : undefined;
 }
 
+function getBaseFolderToOpenDialog(): Uri {
+    if (workspace.workspaceFolders !== undefined) {
+        return workspace.workspaceFolders[0].uri;
+    }
+    return Uri.file(".");
+}
+
 export const HelloWorldCommand = (): void => {
     const quickPickItems: QuickPickItem[] = [];
 
-    fs.readdir(".", (err, files: string[]) => {
-        files.forEach((file) => {
-            const uri = Uri.file(file);
-            quickPickItems.push({ label: uri.path });
-        });
+    window
+        .showOpenDialog({
+            canSelectMany: false,
+            canSelectFolders: false,
+            title: "Select a file to send to Tuleap",
+            openLabel: "Select",
+            defaultUri: getBaseFolderToOpenDialog(),
+        })
+        .then(
+            (selectedFiles) => {
+                if (!selectedFiles) {
+                    console.error("No file selected !");
+                }
+                console.log(selectedFiles);
+            },
+            (reason) => {
+                console.error("Could not show the open file dialog: " + reason);
+            }
+        );
+    // fs.readdir(".", (err, files: string[]) => {
+    //     files.forEach((file) => {
+    //         const uri = Uri.file(file);
+    //         quickPickItems.push({ label: uri.path });
+    //     });
 
-        const title = "Send file to Tuleap";
+    //     const title = "Send file to Tuleap";
 
-        async function runMultiStep(): Promise<void> {
-            const state: Partial<State> = {};
-            await MultiStepInput.run((input) => pickAFile(input, state));
-        }
+    //     async function runMultiStep(): Promise<void> {
+    //         const state: Partial<State> = {};
+    //         await MultiStepInput.run((input) => pickAFile(input, state));
+    //     }
 
-        runMultiStep();
+    //     runMultiStep();
 
-        async function pickAFile(input: MultiStepInput, state: Partial<State>): Promise<InputStep> {
-            await input.showQuickPick({
-                title,
-                step: 1,
-                totalSteps: 3,
-                placeholder: "Pick a file to send to Tuleap",
-                items: quickPickItems,
-                activeItem: state.selectedFile,
-                shouldResume: shouldResume,
-            });
-            return (input: MultiStepInput) => inputChooseArtifact(input);
-        }
+    //     async function pickAFile(input: MultiStepInput, state: Partial<State>): Promise<InputStep> {
+    //         await input.showQuickPick({
+    //             title,
+    //             step: 1,
+    //             totalSteps: 3,
+    //             placeholder: "Pick a file to send to Tuleap",
+    //             items: quickPickItems,
+    //             activeItem: state.selectedFile,
+    //             shouldResume: shouldResume,
+    //         });
+    //         return (input: MultiStepInput) => inputChooseArtifact(input);
+    //     }
 
-        async function inputChooseArtifact(input: MultiStepInput): Promise<InputStep> {
-            await input.showInputBox({
-                title,
-                step: 2,
-                totalSteps: 4,
-                value: "",
-                prompt: "Enter your artifact id",
-                validate: validateIsANumber,
-                shouldResume: shouldResume,
-            });
-            return () => uploadFileToTuleap();
-        }
+    //     async function inputChooseArtifact(input: MultiStepInput): Promise<InputStep> {
+    //         await input.showInputBox({
+    //             title,
+    //             step: 2,
+    //             totalSteps: 4,
+    //             value: "",
+    //             prompt: "Enter your artifact id",
+    //             validate: validateIsANumber,
+    //             shouldResume: shouldResume,
+    //         });
+    //         return () => uploadFileToTuleap();
+    //     }
 
-        function uploadFileToTuleap(): Promise<void> {
-            // TODO call api
-            console.log("should call a rest upload file");
-            return Promise.resolve();
-        }
-    });
+    //     function uploadFileToTuleap(): Promise<void> {
+    //         // TODO call api
+    //         console.log("should call a rest upload file");
+    //         return Promise.resolve();
+    //     }
+    // });
 };
