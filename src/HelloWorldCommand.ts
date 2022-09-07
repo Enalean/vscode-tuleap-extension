@@ -1,10 +1,13 @@
 // import type { QuickPickItem } from "vscode";
+import type { Disposable } from "vscode";
 import { Uri, workspace, window } from "vscode";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
 import * as path from "path";
 import { Upload } from "tus-js-client";
 import { APIQuerier } from "./APIQuerier";
+import { EmptyDisposable } from "./EmptyDisposable";
+import { FileDescriptorDisposable } from "./FileDescriptorDisposable";
 // import type { InputStep } from "./MultiStepInput";
 // import { MultiStepInput } from "./MultiStepInput";
 
@@ -71,7 +74,7 @@ function getBaseFolderToOpenDialog(): Uri {
 const CHUNK_SIZE = 67108864; // = 64 MiB. Number of bytes held in memory at a time during file upload;
 
 export const HelloWorldCommand = () => (): void => {
-    //TODO: ask user for field_id, artifact_id and access_key
+    //TODO: ask user for Tuleap URL, field_id, artifact_id and access_key
     // project_id = 107
     // tracker_id = 68
     const field_id = 1394;
@@ -80,6 +83,8 @@ export const HelloWorldCommand = () => (): void => {
     const tuleap_base_uri = `https://tuleap-web.tuleap-aio-dev.docker`;
 
     const querier = APIQuerier(tuleap_base_uri, personal_access_key);
+
+    let open_file_descriptor: Disposable = EmptyDisposable();
 
     window
         .showOpenDialog({
@@ -96,7 +101,10 @@ export const HelloWorldCommand = () => (): void => {
             return selected_files[0];
         })
         .then((uri: Uri) =>
-            fs.open(uri.fsPath).then((handle): FileOpened => ({ path: uri.fsPath, handle }))
+            fs.open(uri.fsPath).then((handle): FileOpened => {
+                open_file_descriptor = FileDescriptorDisposable.fromFileHandle(handle);
+                return { path: uri.fsPath, handle };
+            })
         )
         .then((file: FileOpened) => {
             const file_type = mime.getType(file.path) ?? "";
@@ -138,14 +146,18 @@ export const HelloWorldCommand = () => (): void => {
                 uploader.start();
             });
         })
+        .then((file: FileUploaded) => {
+            console.log("Attaching file to Artifact");
+            return querier.attachFileToArtifact(artifact_id, field_id, file.file_id);
+        })
         .then(
-            (file: FileUploaded) => {
-                console.log("Attaching file to Artifact");
-                return querier.attachFileToArtifact(artifact_id, field_id, file.file_id);
+            () => {
+                console.log("Success !");
+                open_file_descriptor.dispose();
             },
             (reason) => {
-                //TODO: we should be storing in memory the open file handle and closing it if there's any error
                 console.error("Error in Hello World command: " + reason);
+                open_file_descriptor.dispose();
             }
         );
     // const quickPickItems: QuickPickItem[] = [];
