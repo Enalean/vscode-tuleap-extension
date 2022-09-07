@@ -1,4 +1,4 @@
-import type { Disposable } from "vscode";
+import type { Disposable, ExtensionContext } from "vscode";
 import { Uri, workspace, window, env, QuickInputButtons } from "vscode";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
@@ -39,10 +39,14 @@ export type FileUploaded = {
     readonly file_id: number;
 };
 
-type TuleapBaseURIEntered = {
-    readonly tuleap_base_uri: string;
+type CommandStarted = {
+    readonly context: ExtensionContext;
     readonly previous_step: number;
     readonly total_steps: number;
+};
+
+type TuleapBaseURIEntered = CommandStarted & {
+    readonly tuleap_base_uri: string;
 };
 
 type TuleapAccessKeyEntered = TuleapBaseURIEntered & {
@@ -58,9 +62,15 @@ type FieldIdEntered = ArtifactIdEntered & {
 };
 
 const BASE_URL_SETTING_KEY = "tuleap_base_url";
+const PERSONAL_ACCESS_KEY_KEY = "personal_access_key";
 
-export const AttachToArtifactCommand = () => (): void => {
-    MultiStepInput.run((input) => inputTuleapBaseURI(input));
+export const AttachToArtifactCommand = (context: ExtensionContext) => (): void => {
+    const base_state: CommandStarted = {
+        context,
+        previous_step: 0,
+        total_steps: 5, //Note: there are not really as many steps, because the last step is to choose a file
+    };
+    MultiStepInput.run((input) => inputTuleapBaseURI(input, base_state));
 };
 
 const validatorThatAcceptsAnything = (): Promise<undefined> => Promise.resolve(undefined);
@@ -91,53 +101,60 @@ function shouldResume(): Promise<boolean> {
     return Promise.resolve(false);
 }
 
-const noopStep: InputStep = () => Promise.resolve(undefined);
-
 const title = "Attach a file to an Artifact";
 
-async function inputTuleapBaseURI(input: MultiStepInput): Promise<InputStep> {
+async function inputTuleapBaseURI(
+    input: MultiStepInput,
+    state: CommandStarted
+): Promise<InputStep> {
+    const current_step = state.previous_step + 1;
     const settings = workspace.getConfiguration(EXTENSION_NAME);
     const base_uri_from_settings = settings.get(BASE_URL_SETTING_KEY);
+
     if (base_uri_from_settings !== null && base_uri_from_settings !== "") {
-        const state: TuleapBaseURIEntered = {
+        const new_state: TuleapBaseURIEntered = {
+            ...state,
             tuleap_base_uri: String(base_uri_from_settings),
-            previous_step: 0,
-            total_steps: 4,
+            previous_step: current_step,
         };
-        return (input) => inputAccessKey(input, state);
+        return (input) => inputAccessKey(input, new_state);
     }
 
-    const current_step = 1;
-    const total_steps = 5; //Note: there are not really as many steps, because the last step is to choose a file
     const entered_base_uri = await input.showInputBox({
         title,
         step: current_step,
-        totalSteps: total_steps,
+        totalSteps: state.total_steps,
         value: "https://tuleap.net",
         prompt: "Enter an URL to a Tuleap instance",
         validate: validateIsAnURL,
         shouldResume,
     });
-    if (entered_base_uri === QuickInputButtons.Back) {
-        return noopStep;
-    }
 
     settings.update(BASE_URL_SETTING_KEY, String(entered_base_uri));
 
-    const state: TuleapBaseURIEntered = {
+    const new_state: TuleapBaseURIEntered = {
+        ...state,
         tuleap_base_uri: String(entered_base_uri),
         previous_step: current_step,
-        total_steps: total_steps,
     };
-    return (input) => inputAccessKey(input, state);
+    return (input) => inputAccessKey(input, new_state);
 }
 
 async function inputAccessKey(
     input: MultiStepInput,
     state: TuleapBaseURIEntered
 ): Promise<InputStep> {
-    //TODO: store access key as a secret
     const current_step = state.previous_step + 1;
+    const access_key_from_storage = await state.context.secrets.get(PERSONAL_ACCESS_KEY_KEY);
+    if (access_key_from_storage !== undefined) {
+        const new_state: TuleapAccessKeyEntered = {
+            ...state,
+            personal_access_key: access_key_from_storage,
+            previous_step: current_step,
+        };
+        return (input) => inputArtifactIdStep(input, new_state);
+    }
+
     const entered_access_key = await input.showInputBox({
         title,
         step: current_step,
@@ -147,9 +164,8 @@ async function inputAccessKey(
         validate: validatorThatAcceptsAnything,
         shouldResume,
     });
-    if (entered_access_key === QuickInputButtons.Back) {
-        return (input) => inputTuleapBaseURI(input);
-    }
+
+    state.context.secrets.store(PERSONAL_ACCESS_KEY_KEY, String(entered_access_key));
 
     const new_state: TuleapAccessKeyEntered = {
         ...state,
@@ -173,9 +189,7 @@ async function inputArtifactIdStep(
         validate: validateIsANumber,
         shouldResume,
     });
-    if (artifact_id === QuickInputButtons.Back) {
-        return (input) => inputAccessKey(input, state);
-    }
+
     const new_state: ArtifactIdEntered = {
         ...state,
         artifact_id: Number(artifact_id),
@@ -198,9 +212,7 @@ async function inputFieldIdStep(
         validate: validateIsANumber,
         shouldResume,
     });
-    if (field_id === QuickInputButtons.Back) {
-        return (input) => inputArtifactIdStep(input, state);
-    }
+
     const new_state: FieldIdEntered = {
         ...state,
         field_id: Number(field_id),

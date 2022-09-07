@@ -137,10 +137,10 @@ export class MultiStepInput {
         validate,
         buttons,
         shouldResume,
-    }: InputBoxParameters): Promise<string | QuickInputButton> {
+    }: InputBoxParameters): Promise<string> {
         const disposables: Disposable[] = [];
         try {
-            return await new Promise<string | QuickInputButton>((resolve, reject) => {
+            return await new Promise<string>((resolve, reject) => {
                 const input = window.createInputBox();
                 input.title = title;
                 input.step = step;
@@ -156,8 +156,6 @@ export class MultiStepInput {
                     input.onDidTriggerButton((button) => {
                         if (button === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
-                        } else {
-                            resolve(button);
                         }
                     }),
                     input.onDidAccept(async () => {

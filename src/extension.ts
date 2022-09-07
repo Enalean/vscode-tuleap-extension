@@ -16,7 +16,7 @@ export function activate(context: ExtensionContext): void {
 
     const attachToArtifact = commands.registerCommand(
         `${EXTENSION_NAME}.attachToArtifact`,
-        AttachToArtifactCommand()
+        AttachToArtifactCommand(context)
     );
     context.subscriptions.push(attachToArtifact);
 }
