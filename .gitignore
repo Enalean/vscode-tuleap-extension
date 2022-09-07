@@ -6,3 +6,7 @@ node_modules/
 dist/
 # packaged extension
 *.vsix
+# VS Code workspace-specific settings. launch.json and tasks.json are allowed
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
