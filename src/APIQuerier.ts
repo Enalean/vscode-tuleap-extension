@@ -32,12 +32,12 @@ export type APIQuerier = {
     attachFileToArtifact(artifact_id: number, field_id: number, file_id: number): Promise<void>;
 };
 
-export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string): APIQuerier => ({
+export const APIQuerier = (tuleap_authority: string, personal_access_key: string): APIQuerier => ({
     createFile: (field_id, file): Promise<NewFileCreated> => {
         const request = mapToRequest(file);
         return axios
             .post<PostFileResponse>(
-                `${tuleap_base_uri}/api/v1/tracker_fields/${field_id}/files`,
+                `https://${tuleap_authority}/api/v1/tracker_fields/${field_id}/files`,
                 request,
                 {
                     headers: {
@@ -57,7 +57,7 @@ export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string)
     },
 
     uploadFile: (file): Promise<FileUploaded> => {
-        const uploadUrl = new URL(file.upload_href, tuleap_base_uri);
+        const uploadUrl = new URL(file.upload_href, `https://${tuleap_authority}`);
 
         return new Promise<FileUploaded>((resolve, reject) => {
             //TODO: feature request being able to pass number values as metadata. String type is rejected by Tuleap's Restler validation (for `file_size`)
@@ -69,7 +69,6 @@ export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string)
                 //TODO: minimize the reproduction and report the issue
                 chunkSize: CHUNK_SIZE,
                 uploadSize: file.file_size,
-                //TODO: progress indicator ?
                 onError: (error): void => {
                     reject(error);
                 },
@@ -83,7 +82,7 @@ export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string)
 
     attachFileToArtifact: (artifact_id, field_id, file_id): Promise<void> =>
         axios.put(
-            `${tuleap_base_uri}/api/v1/artifacts/${artifact_id}`,
+            `https://${tuleap_authority}/api/v1/artifacts/${artifact_id}`,
             {
                 values: [
                     {

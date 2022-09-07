@@ -1,38 +1,13 @@
-// import type { QuickPickItem } from "vscode";
 import type { Disposable } from "vscode";
-import { Uri, workspace, window } from "vscode";
+import { Uri, workspace, window, env, QuickInputButtons } from "vscode";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
 import * as path from "path";
 import { APIQuerier } from "./APIQuerier";
 import { EmptyDisposable } from "./EmptyDisposable";
 import { FileDescriptorDisposable } from "./FileDescriptorDisposable";
-// import type { InputStep } from "./MultiStepInput";
-// import { MultiStepInput } from "./MultiStepInput";
-
-// interface State {
-//     title: string;
-//     step: number;
-//     totalSteps: number;
-//     selectedFile: QuickPickItem;
-//     name: string;
-//     runtime: QuickPickItem;
-// }
-
-// function shouldResume(): Promise<boolean> {
-//     // Could show a notification with the option to resume.
-//     return new Promise<boolean>(() => {
-//         // noop
-//     });
-// }
-
-// async function validateIsANumber(name: string): Promise<string | undefined> {
-//     // TODO check is KO validation is not done
-//     // ...validate...
-//     await new Promise((resolve) => setTimeout(resolve, 1000));
-//     console.log(name);
-//     return name === "0123456789" ? "Artifact id must be a number" : undefined;
-// }
+import type { InputStep } from "./MultiStepInput";
+import { MultiStepInput } from "./MultiStepInput";
 
 // Disable NodeJS checking TLS certificates altogether.
 // DO NOT USE IN PRODUCTION
@@ -63,6 +38,83 @@ export type FileUploaded = {
     readonly file_id: number;
 };
 
+type ArtifactIdEntered = {
+    readonly artifact_id: number;
+};
+
+type FieldIdEntered = {
+    readonly artifact_id: number;
+    readonly field_id: number;
+};
+
+//TODO: store access key as a secret
+//TODO: store Tuleap URI as an extension settings
+export const AttachToArtifactCommand = () => (): void => {
+    MultiStepInput.run((input) => inputArtifactIdStep(input));
+};
+
+function validateIsANumber(input: string): Promise<string | undefined> {
+    const input_as_number = Number.parseInt(input, 10);
+    if (Number.isNaN(input_as_number)) {
+        return Promise.resolve("Artifact id must be a number");
+    }
+    if (Number(input) !== input_as_number) {
+        return Promise.resolve("Artifact id must be a number");
+    }
+    return Promise.resolve(undefined);
+}
+
+function shouldResume(): Promise<boolean> {
+    // Could show a notification with the option to resume.
+    return Promise.resolve(false);
+}
+
+const title = "Attach a file to an Artifact";
+
+async function inputArtifactIdStep(input: MultiStepInput): Promise<InputStep> {
+    const artifact_id = await input.showInputBox({
+        title,
+        step: 1,
+        totalSteps: 3, //Note: there are not really 3 steps, because the third step is to choose a file
+        value: "",
+        prompt: "Enter an Artifact ID",
+        validate: validateIsANumber,
+        shouldResume,
+    });
+    if (artifact_id === QuickInputButtons.Back) {
+        return () => Promise.resolve(undefined);
+    }
+    const state: ArtifactIdEntered = {
+        artifact_id: Number(artifact_id),
+    };
+    return (input) => inputFieldIdStep(input, state);
+}
+
+async function inputFieldIdStep(
+    input: MultiStepInput,
+    state: ArtifactIdEntered
+): Promise<InputStep> {
+    const field_id = await input.showInputBox({
+        title,
+        step: 2,
+        totalSteps: 3,
+        value: "",
+        prompt: "Enter the ID of the file attachments field",
+        validate: validateIsANumber,
+        shouldResume,
+    });
+    if (field_id === QuickInputButtons.Back) {
+        return (input) => inputArtifactIdStep(input);
+    }
+    const new_state: FieldIdEntered = {
+        artifact_id: state.artifact_id,
+        field_id: Number(field_id),
+    };
+    // Note: the UX can certainly be improved, it is a little bit weird that a "select a file" dialog opens out of a sudden.
+    // We should probably use a button for that.
+    return () => selectAFileAndAttachItStep(new_state);
+}
+
 function getBaseFolderToOpenDialog(): Uri {
     if (workspace.workspaceFolders !== undefined) {
         return workspace.workspaceFolders[0].uri;
@@ -70,20 +122,16 @@ function getBaseFolderToOpenDialog(): Uri {
     return Uri.file(".");
 }
 
-export const AttachToArtifactCommand = () => (): void => {
-    //TODO: ask user for Tuleap URL, field_id, artifact_id and access_key
-    // project_id = 107
-    // tracker_id = 68
-    const field_id = 1394;
-    const artifact_id = 6616;
+function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
+    //TODO: ask the user for those
     const personal_access_key = "<replace me by a Tuleap personal access key>";
-    const tuleap_base_uri = `https://tuleap-web.tuleap-aio-dev.docker`;
+    const tuleap_authority = `tuleap-web.tuleap-aio-dev.docker`;
 
-    const querier = APIQuerier(tuleap_base_uri, personal_access_key);
+    const querier = APIQuerier(tuleap_authority, personal_access_key);
 
     let open_file_descriptor: Disposable = EmptyDisposable();
 
-    window
+    return window
         .showOpenDialog({
             canSelectMany: false,
             canSelectFolders: false,
@@ -118,74 +166,44 @@ export const AttachToArtifactCommand = () => (): void => {
         })
         .then((file: FileStatsRetrieved) => {
             console.log("Creating upload on Tuleap");
-            return querier.createFile(field_id, file);
+            return querier.createFile(state.field_id, file);
         })
         .then((file: NewFileCreated) => {
             console.log("Starting TUS Upload");
             return querier.uploadFile(file);
         })
         .then((file: FileUploaded) => {
+            open_file_descriptor.dispose();
             console.log("Attaching file to Artifact");
-            return querier.attachFileToArtifact(artifact_id, field_id, file.file_id);
+            return querier.attachFileToArtifact(state.artifact_id, state.field_id, file.file_id);
+        })
+        .then(() => {
+            const artifact_uri = Uri.from({
+                scheme: "https",
+                authority: tuleap_authority,
+                path: `/plugins/tracker/`,
+                query: `aid=${state.artifact_id}`,
+            });
+
+            return window
+                .showInformationMessage(
+                    "Successfully attached the file to the Artifact",
+                    "Go to Artifact"
+                )
+                .then((button) => {
+                    if (button === undefined) {
+                        return Promise.resolve(true);
+                    }
+                    return env.openExternal(artifact_uri);
+                });
         })
         .then(
             () => {
-                window.showInformationMessage(
-                    "Successfully attached the file to the Tuleap Artifact"
-                );
-                open_file_descriptor.dispose();
+                // Nothing more to do
             },
             (reason) => {
                 window.showErrorMessage("Error in Attach To Artifact command: " + reason);
                 open_file_descriptor.dispose();
             }
         );
-    // const quickPickItems: QuickPickItem[] = [];
-    // fs.readdir(".", (err, files: string[]) => {
-    //     files.forEach((file) => {
-    //         const uri = Uri.file(file);
-    //         quickPickItems.push({ label: uri.path });
-    //     });
-
-    //     const title = "Send file to Tuleap";
-
-    //     async function runMultiStep(): Promise<void> {
-    //         const state: Partial<State> = {};
-    //         await MultiStepInput.run((input) => pickAFile(input, state));
-    //     }
-
-    //     runMultiStep();
-
-    //     async function pickAFile(input: MultiStepInput, state: Partial<State>): Promise<InputStep> {
-    //         await input.showQuickPick({
-    //             title,
-    //             step: 1,
-    //             totalSteps: 3,
-    //             placeholder: "Pick a file to send to Tuleap",
-    //             items: quickPickItems,
-    //             activeItem: state.selectedFile,
-    //             shouldResume: shouldResume,
-    //         });
-    //         return (input: MultiStepInput) => inputChooseArtifact(input);
-    //     }
-
-    //     async function inputChooseArtifact(input: MultiStepInput): Promise<InputStep> {
-    //         await input.showInputBox({
-    //             title,
-    //             step: 2,
-    //             totalSteps: 4,
-    //             value: "",
-    //             prompt: "Enter your artifact id",
-    //             validate: validateIsANumber,
-    //             shouldResume: shouldResume,
-    //         });
-    //         return () => uploadFileToTuleap();
-    //     }
-
-    //     function uploadFileToTuleap(): Promise<void> {
-    //         // TODO call api
-    //         console.log("should call a rest upload file");
-    //         return Promise.resolve();
-    //     }
-    // });
-};
+}

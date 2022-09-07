@@ -2,6 +2,11 @@
 // Helper code that wraps the API for the multi-step case.
 // -------------------------------------------------------
 
+// Note: this code is based on this file:
+// https://github.com/microsoft/vscode-extension-samples/blob/main/quickinput-sample/src/multiStepInput.ts
+// I spent a little effort to try and simplify it a little bit, as the avalanche of generics, classes, Promises, Promises-based control flow and State made it very difficult to understand.
+// This code is still _way_ too clever-looking for what we really need. We should not reuse it as it stands, it would be safer to start from scratch.
+
 import type { Disposable, QuickInput, QuickInputButton, QuickPickItem } from "vscode";
 import { QuickInputButtons, window } from "vscode";
 
@@ -36,7 +41,7 @@ interface InputBoxParameters {
 }
 
 export class MultiStepInput {
-    static run(start: InputStep): Promise<void> {
+    static run(start: InputStep): Thenable<void> {
         const input = new MultiStepInput();
         return input.stepThrough(start);
     }
