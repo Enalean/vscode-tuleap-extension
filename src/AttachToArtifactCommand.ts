@@ -1,5 +1,5 @@
 import type { Disposable, ExtensionContext } from "vscode";
-import { Uri, workspace, window, env, QuickInputButtons } from "vscode";
+import { Uri, workspace, window, env } from "vscode";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
 import * as path from "path";
@@ -109,15 +109,18 @@ async function inputTuleapBaseURI(
 ): Promise<InputStep> {
     const current_step = state.previous_step + 1;
     const settings = workspace.getConfiguration(EXTENSION_NAME);
-    const base_uri_from_settings = settings.get(BASE_URL_SETTING_KEY);
 
-    if (base_uri_from_settings !== null && base_uri_from_settings !== "") {
-        const new_state: TuleapBaseURIEntered = {
-            ...state,
-            tuleap_base_uri: String(base_uri_from_settings),
-            previous_step: current_step,
-        };
-        return (input) => inputAccessKey(input, new_state);
+    if (!input.has_just_gone_back) {
+        const base_uri_from_settings = settings.get(BASE_URL_SETTING_KEY);
+
+        if (base_uri_from_settings !== null && base_uri_from_settings !== "") {
+            const new_state: TuleapBaseURIEntered = {
+                ...state,
+                tuleap_base_uri: String(base_uri_from_settings),
+                previous_step: current_step,
+            };
+            return (input) => inputAccessKey(input, new_state);
+        }
     }
 
     const entered_base_uri = await input.showInputBox({
@@ -145,14 +148,17 @@ async function inputAccessKey(
     state: TuleapBaseURIEntered
 ): Promise<InputStep> {
     const current_step = state.previous_step + 1;
-    const access_key_from_storage = await state.context.secrets.get(PERSONAL_ACCESS_KEY_KEY);
-    if (access_key_from_storage !== undefined) {
-        const new_state: TuleapAccessKeyEntered = {
-            ...state,
-            personal_access_key: access_key_from_storage,
-            previous_step: current_step,
-        };
-        return (input) => inputArtifactIdStep(input, new_state);
+
+    if (!input.has_just_gone_back) {
+        const access_key_from_storage = await state.context.secrets.get(PERSONAL_ACCESS_KEY_KEY);
+        if (access_key_from_storage !== undefined) {
+            const new_state: TuleapAccessKeyEntered = {
+                ...state,
+                personal_access_key: access_key_from_storage,
+                previous_step: current_step,
+            };
+            return (input) => inputArtifactIdStep(input, new_state);
+        }
     }
 
     const entered_access_key = await input.showInputBox({

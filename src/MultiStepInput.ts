@@ -49,6 +49,8 @@ export class MultiStepInput {
     private current?: QuickInput;
     private steps: InputStep[] = [];
 
+    public has_just_gone_back = false;
+
     private async stepThrough(start: InputStep): Promise<void> {
         let step: InputStep | void = start;
         while (step) {
@@ -59,8 +61,11 @@ export class MultiStepInput {
             }
             try {
                 step = await step(this);
+                this.has_just_gone_back = false;
             } catch (err) {
+                this.has_just_gone_back = false;
                 if (err === InputFlowAction.back) {
+                    this.has_just_gone_back = true;
                     this.steps.pop();
                     step = this.steps.pop();
                 } else if (err === InputFlowAction.resume) {
