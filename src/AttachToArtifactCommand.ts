@@ -130,12 +130,13 @@ export const AttachToArtifactCommand = () => (): void => {
         })
         .then(
             () => {
-                //TODO: success feedback as vscode notification
-                console.log("Success !");
+                window.showInformationMessage(
+                    "Successfully attached the file to the Tuleap Artifact"
+                );
                 open_file_descriptor.dispose();
             },
             (reason) => {
-                console.error("Error in Hello World command: " + reason);
+                window.showErrorMessage("Error in Attach To Artifact command: " + reason);
                 open_file_descriptor.dispose();
             }
         );
