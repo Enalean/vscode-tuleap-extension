@@ -1,11 +1,10 @@
 // import type { QuickPickItem } from "vscode";
 import { Uri, workspace, window } from "vscode";
-// Note: instead of using axios (which weighs ~250KiB, that is simply too much)
-// we should build our own abstraction on top of node's https module.
-import axios from "axios";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
 import * as path from "path";
+import { Upload } from "tus-js-client";
+import { APIQuerier } from "./APIQuerier";
 // import type { InputStep } from "./MultiStepInput";
 // import { MultiStepInput } from "./MultiStepInput";
 
@@ -37,22 +36,29 @@ import * as path from "path";
 // DO NOT USE IN PRODUCTION
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-type IncompleteFileData = {
+type FileOpened = {
+    readonly handle: fs.FileHandle;
     readonly path: string;
-    readonly file_size: number;
 };
 
-//TODO: move in some kind of querier
-type PostFileRequest = {
-    readonly name: string;
+export type FileStatsRetrieved = {
+    readonly handle: fs.FileHandle;
+    readonly file_name: string;
     readonly file_size: number;
     readonly file_type: string;
 };
 
-type PostFileResponse = {
-    readonly id: number;
-    readonly download_href: string;
+export type NewFileCreated = {
+    readonly handle: fs.FileHandle;
+    readonly file_id: number;
+    readonly file_name: string;
+    readonly file_size: number;
+    readonly file_type: string;
     readonly upload_href: string;
+};
+
+type FileUploaded = {
+    readonly file_id: number;
 };
 
 function getBaseFolderToOpenDialog(): Uri {
@@ -62,38 +68,19 @@ function getBaseFolderToOpenDialog(): Uri {
     return Uri.file(".");
 }
 
-function buildFileRequest(file: IncompleteFileData): PostFileRequest {
-    const file_type = mime.getType(file.path) ?? "";
-    const file_name = path.basename(file.path);
+const CHUNK_SIZE = 67108864; // = 64 MiB. Number of bytes held in memory at a time during file upload;
 
-    return {
-        name: file_name,
-        file_size: file.file_size,
-        file_type,
-    };
-}
+export const HelloWorldCommand = () => (): void => {
+    //TODO: ask user for field_id, artifact_id and access_key
+    // project_id = 107
+    // tracker_id = 68
+    const field_id = 1394;
+    const artifact_id = 6616;
+    const personal_access_key = "<replace me by a Tuleap personal access key>";
+    const tuleap_base_uri = `https://tuleap-web.tuleap-aio-dev.docker`;
 
-//TODO: abort ctrler
-function createFile(
-    field_id: number,
-    personal_access_key: string,
-    representation: PostFileRequest
-): Promise<PostFileResponse> {
-    return axios
-        .post<PostFileResponse>(
-            `https://tuleap-web.tuleap-aio-dev.docker/api/v1/tracker_fields/${field_id}/files`,
-            representation,
-            {
-                headers: {
-                    "X-Auth-AccessKey": personal_access_key,
-                    "Content-type": "application/json",
-                },
-            }
-        )
-        .then((response) => response.data);
-}
+    const querier = APIQuerier(tuleap_base_uri, personal_access_key);
 
-export const HelloWorldCommand = (): void => {
     window
         .showOpenDialog({
             canSelectMany: false,
@@ -109,25 +96,55 @@ export const HelloWorldCommand = (): void => {
             return selected_files[0];
         })
         .then((uri: Uri) =>
-            fs.stat(uri.fsPath).then((stats) => ({ path: uri.fsPath, file_size: stats.size }))
+            fs.open(uri.fsPath).then((handle): FileOpened => ({ path: uri.fsPath, handle }))
         )
-        .then((file: IncompleteFileData) => {
-            const representation = buildFileRequest(file);
+        .then((file: FileOpened) => {
+            const file_type = mime.getType(file.path) ?? "";
+            const file_name = path.basename(file.path);
 
-            // project_id = 107
-            // tracker_id = 68
-            const field_id = 1394;
-            // artifact_id = 6616
-            const personal_access_key = "<replace me by a Tuleap personal access key>";
+            return file.handle.stat().then(
+                (stats): FileStatsRetrieved => ({
+                    handle: file.handle,
+                    file_name,
+                    file_type,
+                    file_size: stats.size,
+                })
+            );
+        })
+        .then((file: FileStatsRetrieved) => {
+            console.log("Creating upload on Tuleap");
+            return querier.createFile(field_id, file);
+        })
+        .then((file: NewFileCreated) => {
+            const uploadUrl = new URL(file.upload_href, `https://tuleap-web.tuleap-aio-dev.docker`);
 
-            console.log("Making HTTP request to Tuleap");
-            return createFile(field_id, personal_access_key, representation);
+            console.log("Starting TUS Upload");
+            //TODO: move to APIQuerier ?
+            return new Promise<FileUploaded>((resolve, reject) => {
+                //TODO: feature request being able to pass number values as metadata. Only strings is rejected by Tuleap's Restler validation (for file_size)
+                const uploader = new Upload(file.handle.createReadStream({ start: 0 }), {
+                    uploadUrl: uploadUrl.href,
+                    headers: { "X-Auth-AccessKey": personal_access_key },
+                    chunkSize: CHUNK_SIZE,
+                    uploadSize: file.file_size,
+                    //TODO: progress indicator ?
+                    onError: (error): void => {
+                        reject(error);
+                    },
+                    onSuccess: (): void => {
+                        resolve({ file_id: file.file_id });
+                    },
+                });
+                uploader.start();
+            });
         })
         .then(
-            (response: PostFileResponse) => {
-                console.log(response);
+            (file: FileUploaded) => {
+                console.log("Attaching file to Artifact");
+                return querier.attachFileToArtifact(artifact_id, field_id, file.file_id);
             },
             (reason) => {
+                //TODO: we should be storing in memory the open file handle and closing it if there's any error
                 console.error("Error in Hello World command: " + reason);
             }
         );

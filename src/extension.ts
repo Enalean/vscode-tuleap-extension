@@ -12,7 +12,7 @@ export function activate(context: ExtensionContext): void {
     // Now provide the implementation of the command with registerCommand
     // The commandId parameter must match the command field in package.json
 
-    const helloWorld = commands.registerCommand("tuleap.helloWorld", HelloWorldCommand);
+    const helloWorld = commands.registerCommand("tuleap.helloWorld", HelloWorldCommand());
     context.subscriptions.push(helloWorld);
 }
 
