@@ -1,7 +1,8 @@
 // Note: instead of using axios (which weighs ~250KiB, that is simply too much)
 // we should build our own abstraction on top of node's https module.
 import axios from "axios";
-import type { FileStatsRetrieved, NewFileCreated } from "./HelloWorldCommand";
+import { Upload } from "tus-js-client";
+import type { FileStatsRetrieved, FileUploaded, NewFileCreated } from "./HelloWorldCommand";
 
 type PostFileRequest = {
     readonly name: string;
@@ -21,8 +22,12 @@ const mapToRequest = (file: FileStatsRetrieved): PostFileRequest => ({
     file_type: file.file_type,
 });
 
+const CHUNK_SIZE = 67108864; // = 64 MiB. Number of bytes held in memory at a time during file upload;
+
 export type APIQuerier = {
     createFile(field_id: number, file: FileStatsRetrieved): Promise<NewFileCreated>;
+
+    uploadFile(file: NewFileCreated): Promise<FileUploaded>;
 
     attachFileToArtifact(artifact_id: number, field_id: number, file_id: number): Promise<void>;
 };
@@ -49,6 +54,31 @@ export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string)
                 file_type: file.file_type,
                 upload_href: response.data.upload_href,
             }));
+    },
+
+    uploadFile: (file): Promise<FileUploaded> => {
+        const uploadUrl = new URL(file.upload_href, tuleap_base_uri);
+
+        return new Promise<FileUploaded>((resolve, reject) => {
+            //TODO: feature request being able to pass number values as metadata. String type is rejected by Tuleap's Restler validation (for `file_size`)
+            const uploader = new Upload(file.handle.createReadStream({ start: 0 }), {
+                uploadUrl: uploadUrl.href,
+                headers: { "X-Auth-AccessKey": personal_access_key },
+                // Note that tus-js-client's documentation specifies to avoid setting chunkSize and uploadSize unless forced to.
+                // We are forced to set them, it does not look like the detection of ReadableStream worked in our case.
+                //TODO: minimize the reproduction and report the issue
+                chunkSize: CHUNK_SIZE,
+                uploadSize: file.file_size,
+                //TODO: progress indicator ?
+                onError: (error): void => {
+                    reject(error);
+                },
+                onSuccess: (): void => {
+                    resolve({ file_id: file.file_id });
+                },
+            });
+            uploader.start();
+        });
     },
 
     attachFileToArtifact: (artifact_id, field_id, file_id): Promise<void> =>

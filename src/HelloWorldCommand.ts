@@ -4,7 +4,6 @@ import { Uri, workspace, window } from "vscode";
 import * as fs from "fs/promises";
 import * as mime from "mime/lite";
 import * as path from "path";
-import { Upload } from "tus-js-client";
 import { APIQuerier } from "./APIQuerier";
 import { EmptyDisposable } from "./EmptyDisposable";
 import { FileDescriptorDisposable } from "./FileDescriptorDisposable";
@@ -60,7 +59,7 @@ export type NewFileCreated = {
     readonly upload_href: string;
 };
 
-type FileUploaded = {
+export type FileUploaded = {
     readonly file_id: number;
 };
 
@@ -70,8 +69,6 @@ function getBaseFolderToOpenDialog(): Uri {
     }
     return Uri.file(".");
 }
-
-const CHUNK_SIZE = 67108864; // = 64 MiB. Number of bytes held in memory at a time during file upload;
 
 //TODO: rename the command
 export const HelloWorldCommand = () => (): void => {
@@ -125,30 +122,8 @@ export const HelloWorldCommand = () => (): void => {
             return querier.createFile(field_id, file);
         })
         .then((file: NewFileCreated) => {
-            const uploadUrl = new URL(file.upload_href, `https://tuleap-web.tuleap-aio-dev.docker`);
-
             console.log("Starting TUS Upload");
-            //TODO: move to APIQuerier ?
-            return new Promise<FileUploaded>((resolve, reject) => {
-                //TODO: feature request being able to pass number values as metadata. String type is rejected by Tuleap's Restler validation (for `file_size`)
-                const uploader = new Upload(file.handle.createReadStream({ start: 0 }), {
-                    uploadUrl: uploadUrl.href,
-                    headers: { "X-Auth-AccessKey": personal_access_key },
-                    // Note that tus-js-client's documentation specifies to avoid setting chunkSize and uploadSize unless forced to.
-                    // We are forced to set them, it does not look like the detection of ReadableStream worked in our case.
-                    //TODO: minimize the reproduction and report the issue
-                    chunkSize: CHUNK_SIZE,
-                    uploadSize: file.file_size,
-                    //TODO: progress indicator ?
-                    onError: (error): void => {
-                        reject(error);
-                    },
-                    onSuccess: (): void => {
-                        resolve({ file_id: file.file_id });
-                    },
-                });
-                uploader.start();
-            });
+            return querier.uploadFile(file);
         })
         .then((file: FileUploaded) => {
             console.log("Attaching file to Artifact");
