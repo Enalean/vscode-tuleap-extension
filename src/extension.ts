@@ -28,7 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // The commandId parameter must match the command field in package.json
 
     //TODO: dispose of this command in deactivate function
-    vscode.commands.registerCommand("tuleap-file-upload.helloWorld", () => {
+    vscode.commands.registerCommand("tuleap.helloWorld", () => {
         const resourceGroups: QuickPickItem[] = [];
 
         // TODO make this relative
