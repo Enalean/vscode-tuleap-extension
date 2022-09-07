@@ -14,7 +14,7 @@ insert_final_newline = true
 [*.nix]
 indent_size = 2
 
-[{package.json,Jenkinsfile}]
+[{package.json,.prettierrc,tsconfig.json}]
 indent_size = 2
 
 [*.md]
