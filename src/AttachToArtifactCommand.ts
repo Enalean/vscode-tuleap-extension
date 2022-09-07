@@ -39,11 +39,17 @@ export type FileUploaded = {
     readonly file_id: number;
 };
 
-type CommandStarted = {
+type BaseState = {
     readonly context: ExtensionContext;
     readonly previous_step: number;
     readonly total_steps: number;
 };
+
+type FileSelectedAtStart = BaseState & {
+    readonly file_to_attach: Uri;
+};
+
+type CommandStarted = BaseState | FileSelectedAtStart;
 
 type TuleapBaseURIEntered = CommandStarted & {
     readonly tuleap_base_uri: string;
@@ -64,14 +70,31 @@ type FieldIdEntered = ArtifactIdEntered & {
 const BASE_URL_SETTING_KEY = "tuleap_base_url";
 const PERSONAL_ACCESS_KEY_KEY = "personal_access_key";
 
-export const AttachToArtifactCommand = (context: ExtensionContext) => (): void => {
-    const base_state: CommandStarted = {
+export const AttachToArtifactCommand =
+    (context: ExtensionContext) =>
+    (right_clicked_file: Uri | undefined): void => {
+        const base_state: CommandStarted = buildInitialState(right_clicked_file, context);
+        MultiStepInput.run((input) => inputTuleapBaseURIStep(input, base_state));
+    };
+
+function buildInitialState(
+    right_clicked_file: Uri | undefined,
+    context: ExtensionContext
+): CommandStarted {
+    if (right_clicked_file !== undefined) {
+        return {
+            context,
+            previous_step: 0,
+            total_steps: 4,
+            file_to_attach: right_clicked_file,
+        };
+    }
+    return {
         context,
         previous_step: 0,
         total_steps: 5, //Note: there are not really as many steps, because the last step is to choose a file
     };
-    MultiStepInput.run((input) => inputTuleapBaseURI(input, base_state));
-};
+}
 
 const validatorThatAcceptsAnything = (): Promise<undefined> => Promise.resolve(undefined);
 
@@ -103,7 +126,7 @@ function shouldResume(): Promise<boolean> {
 
 const title = "Attach a file to an Artifact";
 
-async function inputTuleapBaseURI(
+async function inputTuleapBaseURIStep(
     input: MultiStepInput,
     state: CommandStarted
 ): Promise<InputStep> {
@@ -119,7 +142,7 @@ async function inputTuleapBaseURI(
                 tuleap_base_uri: String(base_uri_from_settings),
                 previous_step: current_step,
             };
-            return (input) => inputAccessKey(input, new_state);
+            return (input) => inputAccessKeyStep(input, new_state);
         }
     }
 
@@ -140,10 +163,10 @@ async function inputTuleapBaseURI(
         tuleap_base_uri: String(entered_base_uri),
         previous_step: current_step,
     };
-    return (input) => inputAccessKey(input, new_state);
+    return (input) => inputAccessKeyStep(input, new_state);
 }
 
-async function inputAccessKey(
+async function inputAccessKeyStep(
     input: MultiStepInput,
     state: TuleapBaseURIEntered
 ): Promise<InputStep> {
@@ -236,10 +259,10 @@ function getBaseFolderToOpenDialog(): Uri {
     return Uri.file(".");
 }
 
-function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
-    const querier = APIQuerier(state.tuleap_base_uri, state.personal_access_key);
-
-    let open_file_descriptor: Disposable = EmptyDisposable();
+function useStateFileOrSelectOne(state: FieldIdEntered): Thenable<Uri> {
+    if ("file_to_attach" in state) {
+        return Promise.resolve(state.file_to_attach);
+    }
 
     return window
         .showOpenDialog({
@@ -254,7 +277,15 @@ function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
                 return Promise.reject("No file selected");
             }
             return selected_files[0];
-        })
+        });
+}
+
+function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
+    const querier = APIQuerier(state.tuleap_base_uri, state.personal_access_key);
+
+    let open_file_descriptor: Disposable = EmptyDisposable();
+
+    return useStateFileOrSelectOne(state)
         .then((uri: Uri) =>
             fs.open(uri.fsPath).then((handle): FileOpened => {
                 open_file_descriptor = FileDescriptorDisposable.fromFileHandle(handle);

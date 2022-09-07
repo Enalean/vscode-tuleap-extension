@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/Enalean/vscode-tuleap-extension"
   },
+  "main": "./dist/extension.js",
   "engines": {
     "vscode": "^1.70.0"
   },
@@ -17,7 +18,6 @@
   "activationEvents": [
     "onCommand:tuleap.attachToArtifact"
   ],
-  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -26,6 +26,14 @@
         "category": "Tuleap"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "tuleap.attachToArtifact",
+          "group": "8_other"
+        }
+      ]
+    },
     "configuration": {
       "title": "Tuleap",
       "properties": {
