@@ -69,6 +69,8 @@ type FieldIdEntered = ArtifactIdEntered & {
 
 const BASE_URL_SETTING_KEY = "tuleap_base_url";
 const PERSONAL_ACCESS_KEY_KEY = "personal_access_key";
+const DEFAULT_MIME_TYPE = "application/octet-stream";
+const title = "Attach a file to an Artifact";
 
 export const AttachToArtifactCommand =
     (context: ExtensionContext) =>
@@ -123,8 +125,6 @@ function shouldResume(): Promise<boolean> {
     // Could show a notification with the option to resume.
     return Promise.resolve(false);
 }
-
-const title = "Attach a file to an Artifact";
 
 async function inputTuleapBaseURIStep(
     input: MultiStepInput,
@@ -293,7 +293,7 @@ function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
             })
         )
         .then((file: FileOpened) => {
-            const file_type = mime.getType(file.path) ?? "";
+            const file_type = mime.getType(file.path) ?? DEFAULT_MIME_TYPE;
             const file_name = path.basename(file.path);
 
             return file.handle.stat().then(
