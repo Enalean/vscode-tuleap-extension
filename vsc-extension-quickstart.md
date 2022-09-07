@@ -44,7 +44,7 @@
 
 Since Tuleap is not yet registered as a publisher for extensions, we package this extension in a VSIX file. To do so, run `npm run release-alpha`.
 
-Users willing to test the packaged extension can install it with `code --install-extension tuleap-0.1.0.vsix`
+Users willing to test the packaged extension can install it with `code --install-extension tuleap-0.1.0.vsix`. This will install the extension temporarily in the currently running VS Code instance. Once you close it, the extension will be uninstalled again.
 
 ## Go further
 
