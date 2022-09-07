@@ -1,1 +1,6 @@
+# direnv
 .envrc
+# node
+node_modules/
+# bundled javascript
+dist/
