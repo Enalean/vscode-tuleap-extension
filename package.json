@@ -2,7 +2,7 @@
   "name": "tuleap",
   "displayName": "Tuleap",
   "description": "Spike for a Tuleap VS Code extension",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -46,10 +46,11 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "release-alpha": "vsce package",
+    "vscode:prepublish": "npm run build",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "build": "webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -73,6 +74,7 @@
     "prettier": "^2.7.1",
     "ts-loader": "^9.3.1",
     "typescript": "^4.7.4",
+    "vsce": "^2.11.0",
     "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0"
   },

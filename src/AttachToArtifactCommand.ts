@@ -12,7 +12,7 @@ import { EXTENSION_NAME } from "./extension";
 
 // Disable NodeJS checking TLS certificates altogether.
 // DO NOT USE IN PRODUCTION
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+// process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 type FileOpened = {
     readonly handle: fs.FileHandle;

@@ -1,0 +1,7 @@
+# Ignore everything unless included
+**/*
+!dist/
+!CHANGELOG.md
+!README.md
+!package.json
+!package-lock.json

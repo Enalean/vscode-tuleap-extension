@@ -40,6 +40,12 @@
   * The provided test runner will only consider files matching the name pattern `**.test.ts`.
   * You can create folders inside the `test` folder to structure your tests any way you want.
 
+## Publishing
+
+Since Tuleap is not yet registered as a publisher for extensions, we package this extension in a VSIX file. To do so, run `npm run release-alpha`.
+
+Users willing to test the packaged extension can install it with `code --install-extension tuleap-0.1.0.vsix`
+
 ## Go further
 
 * Reduce the extension size and improve the startup time by [bundling your extension](https://code.visualstudio.com/api/working-with-extensions/bundling-extension).

@@ -1,71 +1,42 @@
-# tuleap README
+# README
 
-This is the README for your extension "tuleap". After writing up a brief description, we recommend including the following sections.
+Alpha (unstable) extension for [Tuleap][0]. This is a proof-of-concept for what a future Visual Studio Code extension for Tuleap could do.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+This extension lets you attach a file to a [Tuleap][0] Artifact with the "Attach to Artifact" command. This command can be called either by right-clicking a file in the File Explorer, or directly from the Command menu.
 
-For example if there is an image subfolder under your extension project workspace:
+It has 5 steps:
+1. Unless previously configured in workspace settings, it will ask the base URL of a Tuleap instance. For example: `https://tuleap.net`.
+2. Unless previously entered, it will ask for a personal access key of a Tuleap User. The key **must** have the `REST` scope. It will be used in all REST API calls to Tuleap.
+3. It will ask for an Artifact ID on which it should attach the file. Please make sure the Tuleap User whose personal access key is used has the permission to read and update that artifact.
+4. It will ask for a Field ID for the File Attachments field. Please make sure the Tuleap User has the permission to update that field in the Tracker.
+5. Unless previously selected by a right-click, it will ask to select a file.
 
-\!\[feature X\]\(images/feature-x.png\)
+Once all those steps are completed, the selected file will be uploaded to the Tuleap server and attached to the Artifact. A notification should open with a button to access the Artifact.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+**Note**: for steps 1 and 2, the extension will reuse the last entered value by default. If you wish to modify them, click on the "Back" button in the quick input.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+* `tuleap.tuleap_base_url`: Stores the base URL to the Tuleap instance you will be using.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+* The "Attach to Artifact" command will overwrite all previously attached files on the artifact.
+* It's not possible to attach more than one file at a time using the command.
+* The command asks for a Field ID for the File Attachments field, but using the REST API it could find it by itself, without the need to ask.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.1.0
 
-### 1.0.0
+Alpha release of `tuleap`. Added the "Attach to Artifact" command.
 
-Initial release of ...
+## Links
 
-### 1.0.1
+- [https://tuleap.org][0]
 
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+[0]: https://tuleap.org

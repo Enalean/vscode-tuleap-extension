@@ -4,3 +4,5 @@
 node_modules/
 # bundled javascript
 dist/
+# packaged extension
+*.vsix
