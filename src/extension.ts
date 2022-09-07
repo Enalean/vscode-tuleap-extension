@@ -4,6 +4,8 @@ import type { ExtensionContext } from "vscode";
 import { commands } from "vscode";
 import { AttachToArtifactCommand } from "./AttachToArtifactCommand";
 
+export const EXTENSION_NAME = "tuleap";
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 // arg: extension: ExtensionContext
@@ -13,7 +15,7 @@ export function activate(context: ExtensionContext): void {
     // The commandId parameter must match the command field in package.json
 
     const attachToArtifact = commands.registerCommand(
-        "tuleap.attachToArtifact",
+        `${EXTENSION_NAME}.attachToArtifact`,
         AttachToArtifactCommand()
     );
     context.subscriptions.push(attachToArtifact);

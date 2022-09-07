@@ -25,7 +25,17 @@
         "title": "Attach to Artifact",
         "category": "Tuleap"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Tuleap",
+      "properties": {
+        "tuleap.tuleap_base_url": {
+          "type": "string",
+          "default": null,
+          "description": "Base URL of your Tuleap Server"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

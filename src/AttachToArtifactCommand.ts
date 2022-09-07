@@ -8,6 +8,7 @@ import { EmptyDisposable } from "./EmptyDisposable";
 import { FileDescriptorDisposable } from "./FileDescriptorDisposable";
 import type { InputStep } from "./MultiStepInput";
 import { MultiStepInput } from "./MultiStepInput";
+import { EXTENSION_NAME } from "./extension";
 
 // Disable NodeJS checking TLS certificates altogether.
 // DO NOT USE IN PRODUCTION
@@ -52,8 +53,8 @@ type FieldIdEntered = ArtifactIdEntered & {
     readonly field_id: number;
 };
 
-//TODO: store access key as a secret
-//TODO: store Tuleap URI as an extension settings
+const BASE_URL_SETTING_KEY = "tuleap_base_url";
+
 export const AttachToArtifactCommand = () => (): void => {
     MultiStepInput.run((input) => inputTuleapBaseURI(input));
 };
@@ -87,7 +88,18 @@ function shouldResume(): Promise<boolean> {
 const title = "Attach a file to an Artifact";
 
 async function inputTuleapBaseURI(input: MultiStepInput): Promise<InputStep> {
-    const tuleap_base_uri = await input.showInputBox({
+    const settings = workspace.getConfiguration(EXTENSION_NAME);
+    const base_uri_from_settings = settings.get(BASE_URL_SETTING_KEY);
+    if (base_uri_from_settings !== null && base_uri_from_settings !== "") {
+        const state: TuleapBaseURIEntered = {
+            tuleap_base_uri: String(base_uri_from_settings),
+            previousStep: 0,
+            totalSteps: 3,
+        };
+        return (input) => inputArtifactIdStep(input, state);
+    }
+
+    const entered_base_uri = await input.showInputBox({
         title,
         step: 1,
         totalSteps: 4, //Note: there are not really 4 steps, because the last step is to choose a file
@@ -96,11 +108,14 @@ async function inputTuleapBaseURI(input: MultiStepInput): Promise<InputStep> {
         validate: validateIsAnURL,
         shouldResume,
     });
-    if (tuleap_base_uri === QuickInputButtons.Back) {
+    if (entered_base_uri === QuickInputButtons.Back) {
         return () => Promise.resolve(undefined);
     }
+
+    settings.update(BASE_URL_SETTING_KEY, String(entered_base_uri));
+
     const state: TuleapBaseURIEntered = {
-        tuleap_base_uri: String(tuleap_base_uri),
+        tuleap_base_uri: String(entered_base_uri),
         previousStep: 1,
         totalSteps: 4,
     };
@@ -173,7 +188,7 @@ function getBaseFolderToOpenDialog(): Uri {
 }
 
 function selectAFileAndAttachItStep(state: FieldIdEntered): Thenable<void> {
-    //TODO: ask the user for those
+    //TODO: store access key as a secret
     const personal_access_key = "<replace me by a Tuleap personal access key>";
 
     const querier = APIQuerier(state.tuleap_base_uri, personal_access_key);
