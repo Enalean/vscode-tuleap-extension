@@ -4,5 +4,5 @@ with pkgs; [
   bash
   coreutils
   gitMinimal
-  nodejs-18_x
+  nodejs-16_x
 ]
