@@ -32,20 +32,18 @@ export type APIQuerier = {
     attachFileToArtifact(artifact_id: number, field_id: number, file_id: number): Promise<void>;
 };
 
-export const APIQuerier = (tuleap_authority: string, personal_access_key: string): APIQuerier => ({
+export const APIQuerier = (tuleap_base_uri: string, personal_access_key: string): APIQuerier => ({
     createFile: (field_id, file): Promise<NewFileCreated> => {
+        const url = new URL(`/api/v1/tracker_fields/${field_id}/files`, tuleap_base_uri);
         const request = mapToRequest(file);
+
         return axios
-            .post<PostFileResponse>(
-                `https://${tuleap_authority}/api/v1/tracker_fields/${field_id}/files`,
-                request,
-                {
-                    headers: {
-                        "X-Auth-AccessKey": personal_access_key,
-                        "Content-type": "application/json",
-                    },
-                }
-            )
+            .post<PostFileResponse>(url.href, request, {
+                headers: {
+                    "X-Auth-AccessKey": personal_access_key,
+                    "Content-type": "application/json",
+                },
+            })
             .then((response) => ({
                 handle: file.handle,
                 file_id: response.data.id,
@@ -57,12 +55,12 @@ export const APIQuerier = (tuleap_authority: string, personal_access_key: string
     },
 
     uploadFile: (file): Promise<FileUploaded> => {
-        const uploadUrl = new URL(file.upload_href, `https://${tuleap_authority}`);
+        const upload_url = new URL(file.upload_href, tuleap_base_uri);
 
         return new Promise<FileUploaded>((resolve, reject) => {
             //TODO: feature request being able to pass number values as metadata. String type is rejected by Tuleap's Restler validation (for `file_size`)
             const uploader = new Upload(file.handle.createReadStream({ start: 0 }), {
-                uploadUrl: uploadUrl.href,
+                uploadUrl: upload_url.href,
                 headers: { "X-Auth-AccessKey": personal_access_key },
                 // Note that tus-js-client's documentation specifies to avoid setting chunkSize and uploadSize unless forced to.
                 // We are forced to set them, it does not look like the detection of ReadableStream worked in our case.
@@ -80,21 +78,18 @@ export const APIQuerier = (tuleap_authority: string, personal_access_key: string
         });
     },
 
-    attachFileToArtifact: (artifact_id, field_id, file_id): Promise<void> =>
-        axios.put(
-            `https://${tuleap_authority}/api/v1/artifacts/${artifact_id}`,
-            {
-                values: [
-                    {
-                        field_id,
-                        value: [file_id],
-                    },
-                ],
-            },
+    attachFileToArtifact: (artifact_id, field_id, file_id): Promise<void> => {
+        const url = new URL(`/api/v1/artifacts/${artifact_id}`, tuleap_base_uri);
+
+        return axios.put(
+            url.href,
+            { values: [{ field_id, value: [file_id] }] },
             {
                 headers: {
                     "X-Auth-AccessKey": personal_access_key,
+                    "Content-type": "application/json",
                 },
             }
-        ),
+        );
+    },
 });
