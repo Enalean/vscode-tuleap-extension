@@ -67,9 +67,7 @@ export class MultiStepInput {
                 }
             }
         }
-        if (this.current) {
-            this.current.dispose();
-        }
+        this.current?.dispose();
     }
 
     async showQuickPick({
@@ -85,29 +83,28 @@ export class MultiStepInput {
         const disposables: Disposable[] = [];
         try {
             return await new Promise<QuickPickItem | QuickInputButton>((resolve, reject) => {
-                const input = window.createQuickPick();
-                input.title = title;
-                input.step = step;
-                input.totalSteps = totalSteps;
-                input.placeholder = placeholder;
-                input.items = items;
+                const quickPick = window.createQuickPick();
+                quickPick.title = title;
+                quickPick.step = step;
+                quickPick.totalSteps = totalSteps;
+                quickPick.placeholder = placeholder;
+                quickPick.items = items;
                 if (activeItem) {
-                    input.activeItems = [activeItem];
+                    quickPick.activeItems = [activeItem];
                 }
-                input.buttons = [
+                quickPick.buttons = [
                     ...(this.steps.length > 1 ? [QuickInputButtons.Back] : []),
                     ...(buttons || []),
                 ];
                 disposables.push(
-                    input.onDidTriggerButton((item) => {
-                        if (item === QuickInputButtons.Back) {
+                    quickPick.onDidTriggerButton((button) => {
+                        if (button === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
-                        } else {
-                            resolve(item);
                         }
+                        resolve(button);
                     }),
-                    input.onDidChangeSelection((items) => resolve(items[0])),
-                    input.onDidHide(() => {
+                    quickPick.onDidChangeSelection((items) => resolve(items[0])),
+                    quickPick.onDidHide(() => {
                         (async (): Promise<void> => {
                             reject(
                                 shouldResume && (await shouldResume())
@@ -117,10 +114,8 @@ export class MultiStepInput {
                         })().catch(reject);
                     })
                 );
-                if (this.current) {
-                    this.current.dispose();
-                }
-                this.current = input;
+                this.current?.dispose();
+                this.current = quickPick;
                 this.current.show();
             });
         } finally {
@@ -153,11 +148,11 @@ export class MultiStepInput {
                 ];
                 let validating = validate("");
                 disposables.push(
-                    input.onDidTriggerButton((item) => {
-                        if (item === QuickInputButtons.Back) {
+                    input.onDidTriggerButton((button) => {
+                        if (button === QuickInputButtons.Back) {
                             reject(InputFlowAction.back);
                         } else {
-                            resolve(item);
+                            resolve(button);
                         }
                     }),
                     input.onDidAccept(async () => {
@@ -188,9 +183,7 @@ export class MultiStepInput {
                         })().catch(reject);
                     })
                 );
-                if (this.current) {
-                    this.current.dispose();
-                }
+                this.current?.dispose();
                 this.current = input;
                 this.current.show();
             });
