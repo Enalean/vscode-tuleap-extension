@@ -1,7 +1,11 @@
 // import type { QuickPickItem } from "vscode";
 import { Uri, workspace, window } from "vscode";
+// Note: instead of using axios (which weighs ~250KiB, that is simply too much)
+// we should build our own abstraction on top of node's https module.
 import axios from "axios";
-// import * as fs from "fs";
+import * as fs from "fs/promises";
+import * as mime from "mime/lite";
+import * as path from "path";
 // import type { InputStep } from "./MultiStepInput";
 // import { MultiStepInput } from "./MultiStepInput";
 
@@ -33,6 +37,24 @@ import axios from "axios";
 // DO NOT USE IN PRODUCTION
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
+type IncompleteFileData = {
+    readonly path: string;
+    readonly file_size: number;
+};
+
+//TODO: move in some kind of querier
+type PostFileRequest = {
+    readonly name: string;
+    readonly file_size: number;
+    readonly file_type: string;
+};
+
+type PostFileResponse = {
+    readonly id: number;
+    readonly download_href: string;
+    readonly upload_href: string;
+};
+
 function getBaseFolderToOpenDialog(): Uri {
     if (workspace.workspaceFolders !== undefined) {
         return workspace.workspaceFolders[0].uri;
@@ -40,19 +62,35 @@ function getBaseFolderToOpenDialog(): Uri {
     return Uri.file(".");
 }
 
-function createFile(field_id: number, personal_access_key: string): void {
-    axios
-        .post(`https://tuleap-web.tuleap-aio-dev.docker/api/v1/tracker_fields/${field_id}/files`, {
-            headers: { "X-Auth-AccessKey": personal_access_key },
-        })
-        .then(
-            (response) => {
-                console.log(response.status);
-            },
-            (reason) => {
-                console.error("Could not make an HTTP request: %s", reason);
+function buildFileRequest(file: IncompleteFileData): PostFileRequest {
+    const file_type = mime.getType(file.path) ?? "";
+    const file_name = path.basename(file.path);
+
+    return {
+        name: file_name,
+        file_size: file.file_size,
+        file_type,
+    };
+}
+
+//TODO: abort ctrler
+function createFile(
+    field_id: number,
+    personal_access_key: string,
+    representation: PostFileRequest
+): Promise<PostFileResponse> {
+    return axios
+        .post<PostFileResponse>(
+            `https://tuleap-web.tuleap-aio-dev.docker/api/v1/tracker_fields/${field_id}/files`,
+            representation,
+            {
+                headers: {
+                    "X-Auth-AccessKey": personal_access_key,
+                    "Content-type": "application/json",
+                },
             }
-        );
+        )
+        .then((response) => response.data);
 }
 
 export const HelloWorldCommand = (): void => {
@@ -64,25 +102,33 @@ export const HelloWorldCommand = (): void => {
             openLabel: "Select",
             defaultUri: getBaseFolderToOpenDialog(),
         })
+        .then((selected_files: Uri[] | undefined) => {
+            if (!selected_files) {
+                return Promise.reject("No file selected");
+            }
+            return selected_files[0];
+        })
+        .then((uri: Uri) =>
+            fs.stat(uri.fsPath).then((stats) => ({ path: uri.fsPath, file_size: stats.size }))
+        )
+        .then((file: IncompleteFileData) => {
+            const representation = buildFileRequest(file);
+
+            // project_id = 107
+            // tracker_id = 68
+            const field_id = 1394;
+            // artifact_id = 6616
+            const personal_access_key = "<replace me by a Tuleap personal access key>";
+
+            console.log("Making HTTP request to Tuleap");
+            return createFile(field_id, personal_access_key, representation);
+        })
         .then(
-            (selected_files) => {
-                if (!selected_files) {
-                    console.error("No file selected !");
-                }
-                console.log(selected_files);
-
-                // project_id = 107
-                // tracker_id = 68
-                const field_id = 1394;
-                // artifact_id = 6616
-                const personal_access_key = "<replace me by a Tuleap personal access key>";
-
-                console.log("Making HTTP request to Tuleap");
-
-                createFile(field_id, personal_access_key);
+            (response: PostFileResponse) => {
+                console.log(response);
             },
             (reason) => {
-                console.error("Could not show the open file dialog: %s", reason);
+                console.error("Error in Hello World command: " + reason);
             }
         );
     // const quickPickItems: QuickPickItem[] = [];
