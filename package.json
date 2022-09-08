@@ -1,6 +1,7 @@
 {
   "name": "tuleap",
   "displayName": "Tuleap",
+  "publisher": "tuleap",
   "description": "Spike for a Tuleap VS Code extension",
   "version": "0.1.0",
   "license": "MIT",
